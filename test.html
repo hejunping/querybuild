@@ -29,6 +29,49 @@
             <div class="FilterOuterTable" id="id1">
             </div>
         </div>
+
+        <!-- Modal -->
+        <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                        <h4 class="modal-title" id="myModalLabel">编辑</h4>
+                    </div>
+                    <div class="modal-body">
+                        <form class="form-horizontal">
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">列</label>
+                                <div class="col-sm-10">
+                                    <input type="email" class="form-control" placeholder="" disabled="disabled" id="column">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">运算符</label>
+                                <div class="col-sm-10">
+                                    <select class="form-control" id="symbol">
+                                        <option value="等于">等于</option>
+                                        <option value="不等于">不等于</option>
+                                        <option value="大于">大于</option>
+                                        <option value="小于">小于</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="col-sm-2 control-label">值</label>
+                                <div class="col-sm-10">
+                                    <input type="input" class="form-control" id="value">
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+                        <button type="button" class="btn btn-primary" id="clickSave">保存</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     <script>
         var buildQuery = function(id){
@@ -38,7 +81,10 @@
             this._g_remove_group = "";
             this._g_remove_id = "";
             this._gi = 0;
+            this.edititem = {};
             var that = this;
+
+            // 增加字段
             this.addColumns = function () {
                 var tmp = {}
                 if (that._gwhere.length == 0){
@@ -97,6 +143,28 @@
                     that.initGroupClick()
                 });
 
+
+                // 编辑事件
+                $("img[src='editStep.png']").click(function () {
+                    var id = $(this).parent().parent().attr("data");
+                    that.edititem = that.getItemById(that._gwhere, id);
+                    $("#column").val(that.edititem['column']);
+                    $("#value").val(that.edititem['value']);
+                    $("#symbol").val(that.edititem['symbol']);
+                });
+
+                // 保存数据
+                $("#clickSave").bind("click", function () {
+                    var column = $("#column").val();
+                    var value = $("#value").val();
+                    var symbol =  $("#symbol").val();
+                    that.edititem['column'] = column
+                    that.edititem['value'] = value
+                    that.edititem['symbol'] = symbol
+                    that.submitItem(that.edititem);
+                    $('#myModal').modal('hide');
+                });
+
                 $(".FilterEditCell").mouseover(function(){
                     $(this).children(".FilterEditOpration").css("opacity", 1);
                 });
@@ -106,7 +174,7 @@
             };
 
 
-            // HTML渲染
+            // 添加HTML
             this.addColumnShow = (function f(groups, root) {
                 var root = root||0
                 var html_tb = '<table class="FilterEditTable" cellpadding="0" cellspacing="0"><tbody>';
@@ -125,7 +193,7 @@
                         html_tb += '<img border="0" alt="" align="absmiddle" src="obj_filter.png" title="根据列过滤">&nbsp;'+groups[i].column+'<span class="FilterEditValueSpan">&nbsp;'+groups[i].symbol+'</span>&nbsp; <span class="FilterEditValueSpan">'+groups[i].value+'</span>';
                         html_tb += '</td>';
                         html_tb += '<td nowrap="" class="FilterEditOpration" style="opacity: 0;" data="'+groups[i].id+'">';
-                        html_tb += '<a href="javascript:void(null)"><img border="0" src="editStep.png" alt="编辑过滤器" title="编辑过滤器" style="margin: 0px 4px;"></a>';
+                        html_tb += '<a href="javascript:void(null)"><img border="0" src="editStep.png" alt="编辑过滤器" title="编辑过滤器" data-toggle="modal" data-target="#myModal" style="margin: 0px 4px;"></a>';
                         html_tb += '<a href="javascript:void(null)"><img border="0" src="deleteStep.png" alt="删除" title="删除" style="margin: 0px 4px;"></a>';
                         if (root){
                             html_tb += '<a href="javascript:void(null)"><img border="0" src="columnMenu.png" alt="编辑过滤器组" title="编辑过滤器组"></a>';
@@ -242,10 +310,45 @@
                 }
                 return newgroup
             };
+            
+            // 获取字段根据ID
+            this.getItemById = function (groups, id) {
+                var newgroups = {}
+                for (var i=0; i<groups.length;i++){
+                    var curr = groups[i];
+                    if( curr['id']== id){
+                        newgroups =  curr;
+                    }
+                    if(curr['group'].length>0){
+                        newgroups = that.getItemById(curr['group'], id)
+                    }
+                }
+                return newgroups;
+            }
+            
+            // 编辑
+            this.editItem = function (groups, item) {
+                for (var i=0; i<groups.length;i++){
+                    var curr = groups[i];
+                    if( curr['id']== item['id']){
+                        groups[i]['symbol'] = item['symbol'];
+                        groups[i]['value'] = item['value'];
+                    }
 
+                    if(curr['group'].length>0){
+                        groups['group'] = that.editItem(curr['group'], item)
+                    }
+                }
+                return groups
+            };
 
+            // 确认编辑
+            this.submitItem = function (item) {
+                that._gwhere = that.editItem(that._gwhere, item)
+                $(that.showHtmlId).html(that.addColumnShow(that._gwhere))
+                that.initGroupClick()
+            }
         }
-
 
         //add click
         var h1 = new buildQuery("#idFilterTable")
@@ -257,225 +360,6 @@
             console.log("Values:",h1._gwhere)
             $(".values pre").html(JSON.stringify(h1._gwhere))
         })
-
-
-        /**
-
-        ////////////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////
-
-        // 全局变量
-        var _gwhere = []
-        var html_tb = ""
-        var _g_remove_group = ""
-        var _g_remove_id = ""
-        var _gi = 0
-        var showHtmlId = "#idFilterTable"
-
-
-        var addColumns = function () {
-            var tmp = {}
-            if (_gwhere.length == 0){
-                tmp['linked'] = ""
-            }else {
-                tmp['linked'] = "AND"
-            }
-            tmp['column'] = "Name"
-            tmp['value'] = "Rick" + _gi
-            tmp['symbol'] = "等于"
-            tmp['id'] = "id_"+ _gi
-            tmp['group'] = []
-            _gwhere.push(tmp)
-            $(showHtmlId).html(addColumnShow(_gwhere))
-            html_tb = ""
-            initGroupClick()
-            _gi++
-        }
-
-        // 初始化
-        var initGroupClick = function () {
-            // 添加组
-            $(".FilterEditOpCell").click(function () {
-                var id = $(this).attr("id")
-                if ($(this).find("a").text()==""){return false;}
-                _gwhere = addGroup(_gwhere, id)
-                $(showHtmlId).html(addColumnShow(_gwhere))
-                initGroupClick()
-            });
-
-            // 删除组
-            $("img[src='columnMenu.png']").click(function () {
-                _g_remove_group = ""
-                _g_remove_id = ""
-                var id = $(this).parent().parent().attr("data")
-                getRemoveGroup(_gwhere, id)
-                var pid = getPervGroupId(_g_remove_group)
-                _gwhere = removeGroup(_gwhere, pid)
-                $(showHtmlId).html(addColumnShow(_gwhere))
-                initGroupClick()
-            });
-
-            // 删除元素
-            $("img[src='deleteStep.png']").click(function () {
-                var id = $(this).parent().parent().attr("data")
-                var isgroup = $(this).parent().next().length
-                if (isgroup){
-                    _g_remove_group = ""
-                    _g_remove_id = ""
-                    getRemoveGroup(_gwhere, id)
-                    var pid = getPervGroupId(_g_remove_group)
-                    _gwhere = removeGroup(_gwhere, pid)
-                }
-                _gwhere = removeItem(_gwhere, id)
-                $(showHtmlId).html(addColumnShow(_gwhere))
-                 initGroupClick()
-            });
-
-            $(".FilterEditCell").mouseover(function(){
-                $(this).children(".FilterEditOpration").css("opacity", 1);
-            });
-            $(".FilterEditCell").mouseout(function(){
-                $(this).children(".FilterEditOpration").css("opacity", 0);
-            });
-        }
-        
-        // 删除元素
-        var removeItem = function (groups, id) {
-            var newgroup = []
-            for(var i=0; i<groups.length;i++){
-                var curr = groups[i];
-                var next = groups[i+1]||0
-                if ( curr['id'] == id ) {
-                    if (curr['linked'] == "" && next){
-                        groups[i+1]['linked'] = ""
-                    }
-                }else{
-                    newgroup.push(curr)
-                }
-                if (curr['group'].length>0){
-                    curr['group'] = removeItem(curr['group'], id)
-                    curr['id'] =  "id"
-                    for (var j=0; j<curr['group'].length;j++){
-                        curr['id'] += curr['group'][j]['id'].replace("id", "")
-                    }
-                }
-            }
-
-            return newgroup
-        }
-        
-
-        // 获取删除组字段
-        var getRemoveGroup = function (groups, id) {
-            for(var i=0; i<groups.length;i++){
-                var curr = groups[i];
-                if ( curr['id'] == id ) {
-                    _g_remove_group = groups
-                    break;
-                }
-                if (curr['group']){
-                    getRemoveGroup(curr['group'], id)
-                }
-            }
-        }
-
-        // 删除组
-        var removeGroup = function (groups, id) {
-            var newgroup = []
-            for(var i=0; i<groups.length;i++){
-                var curr = groups[i];
-                if (curr['id'] != id && curr['group'].length>0){
-                    curr['group'] = removeGroup(curr['group'], id)
-                }
-                if ( curr['id'] == id ) {
-                    for(var j=0;j < _g_remove_group.length;j++){
-                        if(curr['linked']) _g_remove_group[j]['linked'] = curr['linked'];
-                        newgroup.push(_g_remove_group[j])
-                    }
-                }else{
-                    newgroup.push(curr)
-                }
-            }
-            return newgroup
-        }
-        
-        var getPervGroupId = function (groups) {
-            var id = "id"
-
-            for(var i=0; i<groups.length;i++){
-                id += groups[i]['id'].replace("id", "")
-            }
-            return id
-        }
-
-        // 添加组
-        var addGroup = function (groups, id, ischild) {
-            var ischild = ischild||0
-            var newgroup = []
-            for(var i=0; i<groups.length;i++){
-                var prev = groups[i-1]||{};
-                var curr = groups[i];
-                if (curr['id'] == id) {
-                    if (!ischild){
-                        var prevLinked = prev['linked']
-                        prev['linked'] = ""
-                        curr['linked'] = curr['linked'] ? (curr['linked'] == "AND" ? "OR" : "AND") : "";
-                        var tmp = {}
-                        tmp['column'] = ""
-                        tmp['value'] = ""
-                        tmp['symbol'] = ""
-                        tmp['id'] = "id" + prev['id'].replace("id", "") + curr['id'].replace("id", "")
-                        tmp['linked'] = prevLinked
-                        tmp['group'] = [prev, curr]
-                        newgroup.pop()
-                        newgroup.push(tmp)
-                    }else{
-                        curr['linked'] = curr['linked'] ? (curr['linked'] == "AND" ? "OR" : "AND") : "";
-                        newgroup.push(curr)
-                    }
-                } else {
-                    newgroup.push(curr)
-                }
-
-                if ( curr['group'].length > 0 ){
-                    curr['group'] = addGroup(curr['group'], id, 1)
-                }
-            }
-            return newgroup
-        }
-
-        // HTML渲染
-        var addColumnShow = (function f(groups, root) {
-            var root = root||0
-            var html_tb = '<table class="FilterEditTable" cellpadding="0" cellspacing="0"><tbody>';
-            for (var i=0;i<groups.length;i++){
-                if (groups[i].group.length){
-                    html_tb += '<tr class="FilterEditCell" id="">';
-                    html_tb += '<td class="FilterEditOpCell" style="position: static;vertical-align: text-top;" id="'+groups[i].id+'"><a href="javascript:void(null)">'+groups[i].linked+'</a></td>';
-                    html_tb += '<td>';
-                    html_tb += f(groups[i].group, 1)
-                    html_tb += '</td>';
-                    html_tb += '</tr>';
-                }else{
-                    html_tb += '<tr class="FilterEditCell" id="">';
-                    html_tb += '<td class="FilterEditOpCell" style="position: static;vertical-align: text-top;" id="'+groups[i].id+'"><a href="javascript:void(null)">'+groups[i].linked+'</a></td>';
-                    html_tb += '<td>';
-                    html_tb += '<img border="0" alt="" align="absmiddle" src="obj_filter.png" title="根据列过滤">&nbsp;'+groups[i].column+'<span class="FilterEditValueSpan">&nbsp;'+groups[i].symbol+'</span>&nbsp; <span class="FilterEditValueSpan">'+groups[i].value+'</span>';
-                    html_tb += '</td>';
-                    html_tb += '<td nowrap="" class="FilterEditOpration" style="opacity: 0;" data="'+groups[i].id+'">';
-                    html_tb += '<a href="javascript:void(null)"><img border="0" src="editStep.png" alt="编辑过滤器" title="编辑过滤器" style="margin: 0px 4px;"></a>';
-                    html_tb += '<a href="javascript:void(null)"><img border="0" src="deleteStep.png" alt="删除" title="删除" style="margin: 0px 4px;"></a>';
-                    if (root){
-                        html_tb += '<a href="javascript:void(null)"><img border="0" src="columnMenu.png" alt="编辑过滤器组" title="编辑过滤器组"></a>';
-                    }
-                    html_tb += '</td>';
-                    html_tb += '</tr>';
-                }
-            }
-            html_tb += '</tbody></table>';
-            return html_tb
-        })
-        **/
     </script>
 </body>
 </html>
