@@ -20,12 +20,21 @@
         <div class="panle">
             <button class="addColums">ADD</button>
             <button class="getValue">GetValue</button>
+            <button class="transform2List">Transform2List</button>
+            <button class="transform2Group">Transform2Group</button>
             <div class="values">
+                <pre></pre>
+            </div>
+            <div class="transform2List">
+                <pre></pre>
+            </div>
+
+            <div class="transform2Group">
                 <pre></pre>
             </div>
             <div class="FilterOuterTable" id="idFilterTable">
             </div>
-
+            <hr/>
             <div class="FilterOuterTable" id="id1">
             </div>
         </div>
@@ -107,7 +116,7 @@
             // 初始化
             this.initGroupClick = function () {
                 // 添加组
-                $(".FilterEditOpCell").click(function () {
+                $(that.showHtmlId + " .FilterEditOpCell").click(function () {
                     var id = $(this).attr("id")
                     if ($(this).find("a").text()==""){return false;}
                     that._gwhere = that.addGroup(that._gwhere, id)
@@ -116,7 +125,7 @@
                 });
 
                 // 删除组
-                $("img[src='columnMenu.png']").click(function () {
+                $(that.showHtmlId + " img[src='columnMenu.png']").click(function () {
                     that._g_remove_group = ""
                     that._g_remove_id = ""
                     var id = $(this).parent().parent().attr("data")
@@ -128,7 +137,7 @@
                 });
 
                 // 删除元素
-                $("img[src='deleteStep.png']").click(function () {
+                $(that.showHtmlId + " img[src='deleteStep.png']").click(function () {
                     var id = $(this).parent().parent().attr("data")
                     var isgroup = $(this).parent().next().length
                     if (isgroup){
@@ -143,9 +152,8 @@
                     that.initGroupClick()
                 });
 
-
                 // 编辑事件
-                $("img[src='editStep.png']").click(function () {
+                $(that.showHtmlId + " img[src='editStep.png']").click(function () {
                     var id = $(this).parent().parent().attr("data");
                     that.edititem = that.getItemById(that._gwhere, id);
                     $("#column").val(that.edititem['column']);
@@ -165,10 +173,10 @@
                     $('#myModal').modal('hide');
                 });
 
-                $(".FilterEditCell").mouseover(function(){
+                $(that.showHtmlId + " .FilterEditCell").mouseover(function(){
                     $(this).children(".FilterEditOpration").css("opacity", 1);
                 });
-                $(".FilterEditCell").mouseout(function(){
+                $(that.showHtmlId + " .FilterEditCell").mouseout(function(){
                     $(this).children(".FilterEditOpration").css("opacity", 0);
                 });
             };
@@ -347,7 +355,131 @@
                 that._gwhere = that.editItem(that._gwhere, item)
                 $(that.showHtmlId).html(that.addColumnShow(that._gwhere))
                 that.initGroupClick()
-            }
+            };
+            
+            // 转化成一层列表的兼容结构递归方法
+            this.transform2One = function (group, linked, lastcolums) {
+                var linked = linked||"";
+                var lastcolums = lastcolums||[];
+                var wlist = [];
+                for (var i=0;i<group.length;i++){
+                    var curr = group[i];
+                    if ( curr['column'] !="" ){
+                        var tid = curr['id'];
+                        var num = lastcolums[tid]||0;
+                        var parentheses = "";
+                        for (var x=0; x<num;x++){
+                            if(i==0) parentheses +="(";
+                            if(i==(group.length-1)) parentheses +=")";
+                        }
+                        var tmp = {};
+                        tmp['id'] = curr['id'];
+                        tmp['leftparentheses'] = ((i==0) && num>0) ? parentheses : "";
+                        tmp['rightparentheses'] = ((i==(group.length-1)) && num>0) ? parentheses : "";
+                        tmp['linker'] = i==0?linked:curr['linked'];
+                        tmp['key'] = curr['column'];
+                        tmp['symbol'] = curr['symbol'];
+                        tmp['value'] = curr['value'];
+                        wlist.push( tmp );
+                    }else{
+                        var arr = (curr['id'].replace("id_", "")).split("_");
+                        var first = "id_"+arr[0];
+                        var last = "id_"+arr[arr.length-1];
+                        lastcolums[first] = (lastcolums[first]+1)||1;
+                        lastcolums[last] = (lastcolums[last]+1)||1;
+                    }
+                    if (curr['group'].length>0){
+                        var tlist = that.transform2One(curr['group'], curr['linked']||linked, lastcolums);
+                        for(var j=0;j<tlist.length;j++){
+                            wlist.push(tlist[j]);
+                        }
+                    }
+                }
+                return wlist;
+            };
+
+            // 转化成一层列表的兼容结构
+            this.transform2OneShow = function () {
+                return that.transform2One(that._gwhere);
+            };
+
+
+            // 一层结构转多层为编辑使用递归方法
+            this.transform2More = function (groups) {
+                var fa = 1;
+                while (fa){
+                    var newgroup = [];
+                    var tmpgroup = [];
+                    var fl = 0;
+                    var fr = 0;
+                    fa = 0;
+                    for( var i=0; i < groups.length; i++ ){
+                        var curr = groups[i];
+                        var lnum = isNaN(parseInt(curr['leftparentheses'])) ? curr['leftparentheses'].length : curr['leftparentheses'];
+                        var rnum = isNaN(parseInt(curr['rightparentheses'])) ? curr['rightparentheses'].length : curr['rightparentheses'];
+                        // console.log("ID",lnum, rnum);
+                        if (fr == 1){
+                            newgroup.push(groups[i]);
+                        }else{
+                            if( lnum > 0 ){
+                                if (tmpgroup.length > 0){
+                                    for (var x in tmpgroup){
+                                        newgroup.push(tmpgroup[x]);
+                                    }
+                                }
+                                tmpgroup = [];
+                                fl = 1;
+                                tmpgroup.push( groups[i] );
+                            }else{
+                                if ( fl == 1 ){
+                                    tmpgroup.push( groups[i] );
+                                }else{
+                                    newgroup.push(groups[i]);
+                                }
+                            }
+
+                            if ( rnum > 0 && fr == 0 ){
+                                fr = 1;
+                                var tmp = {}
+                                tmp['column'] = "";
+                                tmp['value'] = "";
+                                tmp['symbol'] = "";
+                                tmp['id'] = "id" + tmpgroup[0]['id'].replace("id", "") + curr['id'].replace("id", "")
+                                tmp['linked'] = tmpgroup[0]['linker'];
+                                tmp['leftparentheses'] = tmpgroup[0]['leftparentheses'].length - 1;
+                                tmp['rightparentheses'] = tmpgroup[tmpgroup.length-1]['rightparentheses'].length - 1;
+                                tmpgroup[0]['linker'] = "";
+                                for (var m in tmpgroup){
+                                    delete  tmpgroup[m]['leftparentheses'];
+                                    delete  tmpgroup[m]['rightparentheses'];
+                                    tmpgroup[m]['group'] = [];
+                                }
+                                tmp['group'] = tmpgroup;
+                                newgroup.push(tmp);
+                            }
+                        }
+                        if (rnum > 0){
+                            fa = 1;
+                        }
+
+                        if (i == groups.length-1){
+                            groups = newgroup;
+                        }
+                    }
+                }
+                for (var y in groups){
+                    delete  groups[y]['leftparentheses'];
+                    delete  groups[y]['rightparentheses'];
+                    groups[y]['group'] = [];
+                }
+                return groups;
+            };
+
+            // 转多层显示
+            this.transform2MoreShow = function () {
+                return that.transform2More(that.transform2OneShow());
+            };
+
         }
 
         //add click
@@ -359,6 +491,17 @@
         $(".getValue").bind("click", function () {
             console.log("Values:",h1._gwhere)
             $(".values pre").html(JSON.stringify(h1._gwhere))
+        })
+
+        $(".transform2List").bind("click", function () {
+            var j = h1.transform2OneShow();
+                console.log("List:",j);
+            $(".transform2List pre").html(JSON.stringify(j));
+        })
+        $(".transform2Group").bind("click", function () {
+           var m = h1.transform2MoreShow();
+           console.log("Group:", m);
+            $(".transform2Group pre").html(JSON.stringify(m));
         })
     </script>
 </body>
